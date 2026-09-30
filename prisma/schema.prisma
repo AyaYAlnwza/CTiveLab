@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Support both SQLite (Fast local setup / offline hackathon fallback)
+// and PostgreSQL (Production / Cloud deployment).
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum RobotStatus {
+  IDLE
+  AVAILABLE
+  DISPATCHED
+  BUSY
+  CHARGING
+  MAINTENANCE
+}
+
+enum EmergencyStatus {
+  PENDING
+  DISPATCHED
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+enum TriggerType {
+  SOS_GESTURE
+  FALL_DETECTION
+  MANUAL_PANIC
+  VOICE_COMMAND
+}
+
+model Robot {
+  id            String         @id @default(cuid())
+  name          String         // e.g. "Humanoid-Medic-01", "Walker-Bot-Alpha"
+  model         String?        // e.g. "HRI-Unit-V2"
+  status        RobotStatus    @default(IDLE)
+  batteryLevel  Int            @default(100) // 0-100%
+  currentRoom   String         @default("Docking Station A")
+  isOnline      Boolean        @default(true)
+  lastHeartbeat DateTime       @default(now())
+
+  // Relations
+  emergencyLogs EmergencyLog[]
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("robots")
+}
+
+model EmergencyLog {
+  id              String          @id @default(cuid())
+  timestamp       DateTime        @default(now())
+  status          EmergencyStatus @default(PENDING)
+  triggerType     TriggerType     @default(SOS_GESTURE)
+  roomLocation    String          // e.g. "Living Lab Room 101 - Smart Care Zone"
+  confidenceScore Float           // 0.0 - 1.0 from MediaPipe Hands gesture detector
+  notes           String?         // Additional telemetry or remarks
+
+  // Foreign key linking to the dispatched robot
+  robotAssignedId String?
+  robotAssigned   Robot?          @relation(fields: [robotAssignedId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([status])
+  @@index([timestamp])
+  @@map("emergency_logs")
+}
